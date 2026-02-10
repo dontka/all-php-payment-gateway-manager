@@ -14,7 +14,7 @@
 
 ```bash
 # 1. Cloner le repo
-git clone https://github.com/dontka/all-all-php-payment-gateway-manager-manager.git
+git clone https://github.com/dontka/all-php-payment-gateway-manager.git
 cd all-php-payment-gateway-manager
 
 # 2. Installer les dépendances

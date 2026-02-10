@@ -1,0 +1,15 @@
+parameters:
+    level: 9
+    paths:
+        - src
+    excludePaths:
+        - src/Database/Migrations
+    treatPhpDocTypesAsCertain: false
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
+    
+rules:
+    - phpstan/rules/booleansInConditions
+    - phpstan/rules/disallowedConstantAssignment
+    - phpstan/rules/uselessCastRule
+    - phpstan/rules/uselessParenthesesInFunctionCalls
