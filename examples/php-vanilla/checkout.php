@@ -18,6 +18,7 @@ use PaymentGateway\Gateways\StripeGateway;
 
 // Initialize Payment Manager
 $paymentManager = new PaymentManager();
+$initError = null;
 
 // Configure gateways
 try {
@@ -38,30 +39,39 @@ try {
         $paymentManager->registerGateway('stripe', $stripeGateway);
     }
 
-    echo "✅ Payment gateways initialized\n";
-
 } catch (\Exception $e) {
-    echo "❌ Initialization error: " . $e->getMessage() . "\n";
-    exit(1);
+    $initError = $e->getMessage();
+    error_log("Payment gateway initialization error: " . $initError);
 }
 
 // Handle form submission or API request
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Content-Type: application/json');
+    
+    if ($initError) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Gateway initialization failed: ' . $initError]);
+        exit;
+    }
+    
     $input = $_POST;
 
     // Validate input
     if (empty($input['amount']) || !is_numeric($input['amount'])) {
-        echo json_encode(['error' => 'Invalid amount']);
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid amount']);
         exit;
     }
 
     if (empty($input['currency'])) {
-        echo json_encode(['error' => 'Missing currency']);
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Missing currency']);
         exit;
     }
 
     if (empty($input['email'])) {
-        echo json_encode(['error' => 'Missing email']);
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Missing email']);
         exit;
     }
 
@@ -80,13 +90,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         if ($result['success']) {
+            http_response_code(200);
             echo json_encode([
                 'success' => true,
                 'transaction_id' => $result['transaction_id'] ?? $result['order_id'] ?? null,
                 'approval_link' => $result['approval_link'] ?? null,
-                'message' => '✅ Payment created successfully'
+                'message' => 'Payment created successfully'
             ]);
         } else {
+            http_response_code(400);
             echo json_encode([
                 'success' => false,
                 'error' => $result['error'] ?? 'Payment failed'
@@ -95,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
 
     } catch (\Exception $e) {
+        http_response_code(500);
         echo json_encode([
             'success' => false,
             'error' => $e->getMessage()
@@ -103,7 +116,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Return HTML form for GET requests
+// Only show initialization error on GET if present
+$initMessage = $initError ? "<div class=\"alert alert-warning\">⚠️ Gateway initialization error: $initError</div>" : '';
 ?>
 <!DOCTYPE html>
 <html>
@@ -116,6 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="row">
             <div class="col-md-6 offset-md-3">
                 <h1>💳 Payment Gateway</h1>
+                <?php echo $initMessage; ?>
 
                 <form method="POST" id="paymentForm">
                     <div class="mb-3">
@@ -151,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </select>
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100">Pay Now</button>
+                    <button type="submit" class="btn btn-primary w-100" <?php echo $initError ? 'disabled' : ''; ?>>Pay Now</button>
                 </form>
 
                 <div id="result" style="margin-top: 2rem;"></div>
@@ -164,31 +179,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             e.preventDefault();
 
             const formData = new FormData(e.target);
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                body: formData
-            });
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                });
 
-            const data = await response.json();
-            const resultDiv = document.getElementById('result');
+                const data = await response.json();
+                const resultDiv = document.getElementById('result');
 
-            if (data.success) {
-                resultDiv.innerHTML = `
-                    <div class="alert alert-success">
-                        <h5>✅ Payment Created!</h5>
-                        <p>Transaction ID: <code>${data.transaction_id}</code></p>
-                        ${data.approval_link ? `
-                            <a href="${data.approval_link}" class="btn btn-primary">
-                                Complete Payment →
-                            </a>
-                        ` : '<p>Payment completed immediately</p>'}
-                    </div>
-                `;
-            } else {
-                resultDiv.innerHTML = `
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h5>✅ Payment Created!</h5>
+                            <p>Transaction ID: <code>${data.transaction_id}</code></p>
+                            ${data.approval_link ? `
+                                <a href="${data.approval_link}" class="btn btn-primary">
+                                    Complete Payment →
+                                </a>
+                            ` : '<p>Payment completed immediately</p>'}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h5>❌ Payment Failed</h5>
+                            <p>${data.error}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
                     <div class="alert alert-danger">
-                        <h5>❌ Payment Failed</h5>
-                        <p>${data.error}</p>
+                        <h5>❌ Request Error</h5>
+                        <p>${error.message}</p>
                     </div>
                 `;
             }
