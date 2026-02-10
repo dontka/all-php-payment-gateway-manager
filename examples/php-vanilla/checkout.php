@@ -5,12 +5,61 @@
  *
  * Usage:
  *   Access via web: http://localhost/examples/php-vanilla/checkout.php
- *   Then fill the form and submit to test payment integration
+ *   Fill the form and submit to process payment with the package
  */
 
 // Load configuration and dependencies
 require_once __DIR__ . '/../../vendor/autoload.php';
 $config = require_once __DIR__ . '/config.php';
+
+use PaymentGateway\Core\PaymentManager;
+use PaymentGateway\Gateways\PayPalGateway;
+use PaymentGateway\Gateways\StripeGateway;
+
+// Initialize Payment Manager
+$paymentManager = new PaymentManager();
+$paymentResult = null;
+$paymentError = null;
+
+// Configure gateways
+try {
+    $paypalGateway = new PayPalGateway([
+        'client_id' => $config['paypal']['client_id'],
+        'client_secret' => $config['paypal']['client_secret'],
+        'mode' => $config['paypal']['mode']
+    ]);
+    $paymentManager->registerGateway('paypal', $paypalGateway);
+
+    if (!empty($config['stripe']['api_key'])) {
+        $stripeGateway = new StripeGateway([
+            'api_key' => $config['stripe']['api_key'],
+            'secret_key' => $config['stripe']['secret_key']
+        ]);
+        $paymentManager->registerGateway('stripe', $stripeGateway);
+    }
+} catch (\Exception $e) {
+    $paymentError = "Gateway initialization failed: " . $e->getMessage();
+}
+
+// Handle form submission
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && !$paymentError) {
+    try {
+        $gateway = $_POST['gateway'] ?? 'paypal';
+        
+        $paymentResult = $paymentManager->gateway($gateway)->charge([
+            'amount' => (float) $_POST['amount'],
+            'currency' => $_POST['currency'],
+            'customer' => [
+                'email' => $_POST['email'],
+                'name' => $_POST['name'] ?? 'Customer'
+            ],
+            'description' => $_POST['description'] ?? 'Payment'
+        ]);
+        
+    } catch (\Exception $e) {
+        $paymentError = "Payment processing failed: " . $e->getMessage();
+    }
+}
 
 ?>
 <!DOCTYPE html>
@@ -32,11 +81,47 @@ $config = require_once __DIR__ . '/config.php';
             <div class="col-md-8 offset-md-2">
                 <div class="form-container">
                     <h1>💳 Payment Gateway Integration Example</h1>
-                    <p class="text-muted">PHP Vanilla Example - Learn how to integrate payment gateways</p>
+                    <p class="text-muted">PHP Vanilla Example - Direct integration with the payment package</p>
+                    
+                    <!-- Payment Result Messages -->
+                    <?php if ($paymentError): ?>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <h5 class="alert-heading">❌ Error</h5>
+                            <p><?php echo htmlspecialchars($paymentError); ?></p>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($paymentResult && $paymentResult['success']): ?>
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <h5 class="alert-heading">✅ Payment Created Successfully!</h5>
+                            <p><strong>Gateway:</strong> <?php echo htmlspecialchars($_POST['gateway']); ?></p>
+                            <p><strong>Amount:</strong> <?php echo htmlspecialchars($_POST['amount']); ?> <?php echo htmlspecialchars($_POST['currency']); ?></p>
+                            <p><strong>Customer:</strong> <?php echo htmlspecialchars($_POST['email']); ?></p>
+                            <?php if (!empty($paymentResult['transaction_id'])): ?>
+                                <p><strong>Transaction ID:</strong> <code><?php echo htmlspecialchars($paymentResult['transaction_id']); ?></code></p>
+                            <?php endif; ?>
+                            <?php if (!empty($paymentResult['order_id'])): ?>
+                                <p><strong>Order ID:</strong> <code><?php echo htmlspecialchars($paymentResult['order_id']); ?></code></p>
+                            <?php endif; ?>
+                            <?php if (!empty($paymentResult['approval_link'])): ?>
+                                <p><a href="<?php echo htmlspecialchars($paymentResult['approval_link']); ?>" class="btn btn-primary btn-sm" target="_blank">Complete Payment →</a></p>
+                            <?php endif; ?>
+                            <hr>
+                            <p class="mb-0"><small>Now you would: save to database, send confirmation email, update order status, etc.</small></p>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    <?php elseif ($paymentResult && !$paymentResult['success']): ?>
+                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                            <h5 class="alert-heading">⚠️ Payment Failed</h5>
+                            <p><?php echo htmlspecialchars($paymentResult['error'] ?? 'Unknown error'); ?></p>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    <?php endif; ?>
                     
                     <!-- Payment Form -->
                     <div class="section-title">Step 1: Fill in Payment Details</div>
-                    <form id="paymentForm">
+                    <form method="POST" id="paymentForm">
                         <div class="mb-3">
                             <label class="form-label">Amount <span class="text-danger">*</span></label>
                             <input type="number" class="form-control" name="amount" placeholder="99.99" step="0.01" required>
@@ -59,7 +144,7 @@ $config = require_once __DIR__ . '/config.php';
                         <div class="mb-3">
                             <label class="form-label">Email <span class="text-danger">*</span></label>
                             <input type="email" class="form-control" name="email" placeholder="customer@example.com" required>
-                            <small class="text-muted">Customer email for payment receipt</small>
+                            <small class="text-muted">Customer email for receipt</small>
                         </div>
 
                         <div class="mb-3">
@@ -73,9 +158,7 @@ $config = require_once __DIR__ . '/config.php';
                                 <option value="">Select gateway...</option>
                                 <option value="paypal">PayPal</option>
                                 <option value="stripe">Stripe</option>
-                                <option value="square">Square</option>
                             </select>
-                            <small class="text-muted">Choose which payment provider to use</small>
                         </div>
 
                         <div class="mb-3">
@@ -83,69 +166,48 @@ $config = require_once __DIR__ . '/config.php';
                             <input type="text" class="form-control" name="description" placeholder="Order #12345">
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-lg w-100">Proceed to Payment</button>
+                        <button type="submit" class="btn btn-primary btn-lg w-100">Process Payment Now</button>
                     </form>
 
-                    <!-- Demo Message -->
-                    <div id="demoMessage" style="margin-top: 2rem;"></div>
-
-                    <!-- Implementation Guide -->
-                    <div class="section-title">Step 2: Backend Implementation</div>
+                    <!-- How It Works -->
+                    <div class="section-title">How This Works</div>
                     <div class="example-box">
-                        <strong>PHP Backend Code:</strong>
-                        <pre><code>// process-payment.php
-                                use PaymentGateway\Core\PaymentManager;
-                                use PaymentGateway\Gateways\PayPalGateway;
+                        <strong>The Package Handles:</strong>
+                        <pre><code>// 1. Form submission to checkout.php (this file)
+// 2. Package initializes the payment gateway
+// 3. Package calls the gateway's charge() method
+// 4. Gateway API processes the payment
+// 5. Result displayed directly on this page
 
-                                $manager = new PaymentManager();
-
-                                $gateway = new PayPalGateway([
-                                    'client_id' => $_ENV['PAYPAL_CLIENT_ID'],
-                                    'client_secret' => $_ENV['PAYPAL_CLIENT_SECRET'],
-                                    'mode' => 'sandbox'
-                                ]);
-
-                                $manager->registerGateway('paypal', $gateway);
-
-                                $result = $manager->gateway($_POST['gateway'])
-                                    ->charge([
-                                        'amount' => $_POST['amount'],
-                                        'currency' => $_POST['currency'],
-                                        'customer' => [
-                                            'email' => $_POST['email'],
-                                            'name' => $_POST['name']
-                                        ]
-                                    ]);
-                        </code></pre>
+// Code in this file:
+$result = $paymentManager->gateway($_POST['gateway'])
+    ->charge([
+        'amount' => $_POST['amount'],
+        'currency' => $_POST['currency'],
+        'customer' => [
+            'email' => $_POST['email'],
+            'name' => $_POST['name']
+        ]
+    ]);
+</code></pre>
                     </div>
 
-                    <!-- Configuration Guide -->
-                    <div class="section-title">Step 3: Configuration</div>
+                    <!-- Next Steps -->
+                    <div class="section-title">Next Steps in Your Application</div>
                     <div class="alert alert-info">
-                        <strong>📝 Environment Setup:</strong>
+                        <strong>After payment is processed, you would:</strong>
                         <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
-                            <li>Set <code>PAYPAL_CLIENT_ID</code> environment variable</li>
-                            <li>Set <code>PAYPAL_CLIENT_SECRET</code> environment variable</li>
-                            <li>Set <code>STRIPE_API_KEY</code> for Stripe support</li>
-                            <li>Set <code>PAYPAL_MODE</code> to <code>sandbox</code> or <code>live</code></li>
+                            <li>Save the transaction to database</li>
+                            <li>Send confirmation email to customer</li>
+                            <li>Update order status in your system</li>
+                            <li>Trigger fulfillment process</li>
+                            <li>Setup webhook handlers for payment updates</li>
                         </ul>
-                    </div>
-
-                    <!-- Usage Tips -->
-                    <div class="section-title">Step 4: Next Steps</div>
-                    <div class="alert alert-success">
-                        <strong>✅ What this form demonstrates:</strong>
+                        <strong style="display: block; margin-top: 1rem;">📚 See Examples:</strong>
                         <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
-                            <li>Flexible payment amount and currency selection</li>
-                            <li>Multi-gateway support (PayPal, Stripe, Square)</li>
-                            <li>Customer data capture (email, name)</li>
-                            <li>Simple HTML form for payment initiation</li>
-                        </ul>
-                        <strong style="display: block; margin-top: 1rem;">📚 Learn more:</strong>
-                        <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
-                            <li>See <code>docs/INTEGRATION_GUIDE.md</code> for detailed setup</li>
-                            <li>Check <code>examples/laravel/</code> for Laravel integration</li>
-                            <li>Check <code>examples/symfony/</code> for Symfony integration</li>
+                            <li><code>examples/laravel/</code> - Full Laravel integration with models</li>
+                            <li><code>examples/symfony/</code> - Symfony controllers & services</li>
+                            <li><code>docs/INTEGRATION_GUIDE.md</code> - Detailed setup guide</li>
                         </ul>
                     </div>
                 </div>
@@ -153,37 +215,6 @@ $config = require_once __DIR__ . '/config.php';
         </div>
     </div>
 
-    <script>
-        // Simple form validation feedback
-        document.getElementById('paymentForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const amount = this.querySelector('[name="amount"]').value;
-            const currency = this.querySelector('[name="currency"]').value;
-            const email = this.querySelector('[name="email"]').value;
-            const gateway = this.querySelector('[name="gateway"]').value;
-            const name = this.querySelector('[name="name"]').value || 'Customer';
-            
-            if (!amount || !currency || !email || !gateway) {
-                alert('Please fill in all required fields');
-                return false;
-            }
-            
-            // Display demo message
-            const demoMessage = document.getElementById('demoMessage');
-            demoMessage.innerHTML = `
-                <div class="alert alert-info">
-                    <h5>📝 Demo - Payment Details Submitted</h5>
-                    <p><strong>This is a demonstration.</strong> In production, you would implement <code>process-payment.php</code> to handle this data:</p>
-                    <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
-                        <li><strong>Amount:</strong> ${amount} ${currency}</li>
-                        <li><strong>Email:</strong> ${email}</li>
-                        <li><strong>Name:</strong> ${name}</li>
-                        <li><strong>Gateway:</strong> ${gateway}</li>
-                    </ul>
-                </div>
-            `;
-        });
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
