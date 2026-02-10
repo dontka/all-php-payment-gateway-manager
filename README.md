@@ -19,8 +19,36 @@ Un package PHP complète et modulaire pour intégrer facilement **tous les princ
 
 ### 1️⃣ Installation
 
+#### Option A: Via Packagist (Une fois publié)
+
 ```bash
 composer require dontka/all-php-payment-gateway-manager
+```
+
+#### Option B: Via Chemin Local (Développement)
+
+Si vous testez localement, ajouter à votre `composer.json`:
+
+```json
+{
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../all-php-payment-gateway-manager",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
+    "require": {
+        "dontka/all-php-payment-gateway-manager": "@dev"
+    }
+}
+```
+
+Puis:
+```bash
+composer update
 ```
 
 ### 2️⃣ Configuration selon votre Framework
