@@ -36,7 +36,7 @@ $config = require_once __DIR__ . '/config.php';
                     
                     <!-- Payment Form -->
                     <div class="section-title">Step 1: Fill in Payment Details</div>
-                    <form method="POST" action="/process-payment.php" id="paymentForm">
+                    <form id="paymentForm">
                         <div class="mb-3">
                             <label class="form-label">Amount <span class="text-danger">*</span></label>
                             <input type="number" class="form-control" name="amount" placeholder="99.99" step="0.01" required>
@@ -86,33 +86,37 @@ $config = require_once __DIR__ . '/config.php';
                         <button type="submit" class="btn btn-primary btn-lg w-100">Proceed to Payment</button>
                     </form>
 
+                    <!-- Demo Message -->
+                    <div id="demoMessage" style="margin-top: 2rem;"></div>
+
                     <!-- Implementation Guide -->
                     <div class="section-title">Step 2: Backend Implementation</div>
                     <div class="example-box">
                         <strong>PHP Backend Code:</strong>
                         <pre><code>// process-payment.php
-use PaymentGateway\Core\PaymentManager;
-use PaymentGateway\Gateways\PayPalGateway;
+                                use PaymentGateway\Core\PaymentManager;
+                                use PaymentGateway\Gateways\PayPalGateway;
 
-$manager = new PaymentManager();
+                                $manager = new PaymentManager();
 
-$gateway = new PayPalGateway([
-    'client_id' => $_ENV['PAYPAL_CLIENT_ID'],
-    'client_secret' => $_ENV['PAYPAL_CLIENT_SECRET'],
-    'mode' => 'sandbox'
-]);
+                                $gateway = new PayPalGateway([
+                                    'client_id' => $_ENV['PAYPAL_CLIENT_ID'],
+                                    'client_secret' => $_ENV['PAYPAL_CLIENT_SECRET'],
+                                    'mode' => 'sandbox'
+                                ]);
 
-$manager->registerGateway('paypal', $gateway);
+                                $manager->registerGateway('paypal', $gateway);
 
-$result = $manager->gateway($_POST['gateway'])
-    ->charge([
-        'amount' => $_POST['amount'],
-        'currency' => $_POST['currency'],
-        'customer' => [
-            'email' => $_POST['email'],
-            'name' => $_POST['name']
-        ]
-    ]);</code></pre>
+                                $result = $manager->gateway($_POST['gateway'])
+                                    ->charge([
+                                        'amount' => $_POST['amount'],
+                                        'currency' => $_POST['currency'],
+                                        'customer' => [
+                                            'email' => $_POST['email'],
+                                            'name' => $_POST['name']
+                                        ]
+                                    ]);
+                        </code></pre>
                     </div>
 
                     <!-- Configuration Guide -->
@@ -152,18 +156,33 @@ $result = $manager->gateway($_POST['gateway'])
     <script>
         // Simple form validation feedback
         document.getElementById('paymentForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
             const amount = this.querySelector('[name="amount"]').value;
             const currency = this.querySelector('[name="currency"]').value;
             const email = this.querySelector('[name="email"]').value;
             const gateway = this.querySelector('[name="gateway"]').value;
+            const name = this.querySelector('[name="name"]').value || 'Customer';
             
             if (!amount || !currency || !email || !gateway) {
-                e.preventDefault();
                 alert('Please fill in all required fields');
                 return false;
             }
             
-            alert(`Processing ${amount} ${currency} payment via ${gateway} for ${email}`);
+            // Display demo message
+            const demoMessage = document.getElementById('demoMessage');
+            demoMessage.innerHTML = `
+                <div class="alert alert-info">
+                    <h5>📝 Demo - Payment Details Submitted</h5>
+                    <p><strong>This is a demonstration.</strong> In production, you would implement <code>process-payment.php</code> to handle this data:</p>
+                    <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                        <li><strong>Amount:</strong> ${amount} ${currency}</li>
+                        <li><strong>Email:</strong> ${email}</li>
+                        <li><strong>Name:</strong> ${name}</li>
+                        <li><strong>Gateway:</strong> ${gateway}</li>
+                    </ul>
+                </div>
+            `;
         });
     </script>
 </body>
