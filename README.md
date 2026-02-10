@@ -17,40 +17,354 @@ Un package PHP complète et modulaire pour intégrer facilement **tous les princ
 
 ## 🚀 Démarrage Rapide
 
-### Installation
+### 1️⃣ Installation
 
 ```bash
 composer require dontka/all-php-payment-gateway-manager
 ```
 
-### Configuration (Laravel)
+### 2️⃣ Configuration selon votre Framework
 
-```bash
-php artisan payment:install
+#### 🔷 **Laravel** (Recommandé)
+
+**Étape 1** : Enregistrer le Service Provider (généralement automatique)
+
+```php
+// config/app.php
+'providers' => [
+    // ...
+    PaymentGateway\ServiceProvider::class,
+],
+
+'aliases' => [
+    // ...
+    'Payment' => PaymentGateway\Facades\Payment::class,
+],
 ```
 
-Cela va :
-1. ✅ Vous demander les gateways à installer
-2. ✅ Générer le fichier `.env`
-3. ✅ Exécuter les migrations
-4. ✅ Publier les assets
+**Étape 2** : Publier les fichiers de configuration
 
-### Premier Paiement
+```bash
+php artisan vendor:publish --provider="PaymentGateway\ServiceProvider"
+```
+
+**Étape 3** : Exécuter les migrations
+
+```bash
+php artisan migrate
+```
+
+**Étape 4** : Configurer les variables d'environnement
+
+```bash
+# Copier le fichier d'exemple
+cp .env.example .env
+
+# Ajouter vos clés API
+PAYPAL_CLIENT_ID=your_sandbox_client_id
+PAYPAL_CLIENT_SECRET=your_sandbox_secret
+
+STRIPE_API_KEY=sk_test_...
+STRIPE_SECRET_KEY=sk_test_...
+```
+
+---
+
+#### 🔹 **Symfony** (Support PSR-4)
+
+**Étape 1** : Installer le package
+
+```bash
+composer require symfony/http-client
+composer require dontka/all-php-payment-gateway-manager
+```
+
+**Étape 2** : Créer un service dans `config/services.yaml`
+
+```yaml
+services:
+  payment.manager:
+    class: PaymentGateway\Core\PaymentManager
+    arguments:
+      - '%env(PAYPAL_CLIENT_ID)%'
+      - '%env(PAYPAL_CLIENT_SECRET)%'
+      - '%env(STRIPE_API_KEY)%'
+```
+
+**Étape 3** : Utiliser dans votre contrôleur
+
+```php
+namespace App\Controller;
+
+use PaymentGateway\Core\PaymentManager;
+
+class PaymentController extends AbstractController
+{
+    public function __construct(private PaymentManager $paymentManager) {}
+
+    public function charge()
+    {
+        $result = $this->paymentManager->charge([
+            'gateway' => 'paypal',
+            'amount' => 99.99,
+            'currency' => 'USD',
+        ]);
+    }
+}
+```
+
+---
+
+#### 🔸 **PHP Vanilla** (Sans Framework)
+
+**Étape 1** : Charger l'autoloader
+
+```php
+<?php
+require_once 'vendor/autoload.php';
+
+use PaymentGateway\Core\PaymentManager;
+use PaymentGateway\Gateways\PayPalGateway;
+```
+
+**Étape 2** : Initialiser le PaymentManager
+
+```php
+$paymentManager = new PaymentManager();
+
+// Enregistrer le gateway PayPal
+$paypalGateway = new PayPalGateway(
+    apiKey: getenv('PAYPAL_CLIENT_ID'),
+    secret: getenv('PAYPAL_CLIENT_SECRET'),
+    mode: 'sandbox' // ou 'live'
+);
+
+$paymentManager->registerGateway('paypal', $paypalGateway);
+```
+
+**Étape 3** : Traiter un paiement
+
+```php
+$result = $paymentManager->charge([
+    'gateway' => 'paypal',
+    'amount' => 99.99,
+    'currency' => 'USD',
+    'customer' => ['email' => 'user@example.com'],
+]);
+
+if ($result['success']) {
+    echo "✅ Paiement approuvé: " . $result['approval_link'];
+} else {
+    echo "❌ Erreur: " . $result['error'];
+}
+```
+
+---
+
+### 3️⃣ Premier Paiement (Tous les Frameworks)
+
+#### Simple avec Laravel
 
 ```php
 use PaymentGateway\Facades\Payment;
 
-$result = Payment::charge([
+// 1. Créer une commande PayPal
+$order = Payment::gateway('paypal')->charge([
     'amount' => 99.99,
     'currency' => 'USD',
-    'source' => 'tok_visa',
-    'description' => 'Achat premium'
+    'customer' => [
+        'email' => 'client@example.com',
+        'name' => 'Jean Dupont'
+    ],
+    'description' => 'Achat Premium - Produit XYZ'
+]);
+
+// 2. Rediriger le client vers PayPal
+if ($order['success']) {
+    return redirect($order['approval_link']);
+}
+
+// 3. Après approbation (Callback)
+$captured = Payment::gateway('paypal')->captureOrderPayment($orderId);
+
+if ($captured['success']) {
+    echo "✅ Paiement réussi: " . $captured['capture_id'];
+    // Sauvegarder en BDD, envoyer email, etc.
+}
+```
+
+#### Simple avec Stripe
+
+```php
+use PaymentGateway\Facades\Payment;
+
+$result = Payment::gateway('stripe')->charge([
+    'amount' => 99.99,
+    'currency' => 'USD',
+    'source' => 'tok_visa', // Token du client
+    'description' => 'Achat Premium'
 ]);
 
 if ($result['success']) {
     echo "✅ Paiement réussi: " . $result['transaction_id'];
 } else {
     echo "❌ Erreur: " . $result['error'];
+}
+```
+
+---
+
+### 4️⃣ Intégration avec une Base de Données
+
+#### Laravel Model (Eloquent)
+
+```php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use PaymentGateway\Traits\HasPayments;
+
+class Order extends Model
+{
+    use HasPayments;
+
+    protected $fillable = ['user_id', 'amount', 'currency', 'status'];
+
+    public function processPayment()
+    {
+        return $this->payment([
+            'amount' => $this->amount,
+            'currency' => $this->currency,
+            'customer' => ['email' => $this->user->email],
+            'description' => "Commande #{$this->id}"
+        ]);
+    }
+}
+
+// Usage
+$order = Order::create([
+    'user_id' => auth()->id(),
+    'amount' => 199.99,
+    'currency' => 'EUR'
+]);
+
+$result = $order->processPayment();
+```
+
+#### Suivi des Paiements
+
+```php
+// Vérifier le statut d'un paiement
+$status = Payment::gateway('paypal')->verify($transactionId);
+
+if ($status['status'] === 'COMPLETED') {
+    $order->update(['status' => 'paid']);
+    $order->sendConfirmationEmail();
+}
+```
+
+---
+
+### 5️⃣ Webhooks et Notifications Automatiques
+
+#### Configurer un webhook PayPal
+
+Dans `routes/api.php` (Laravel)
+
+```php
+Route::post('/webhooks/paypal', [\App\Http\Controllers\WebhookController::class, 'handlePayPal']);
+```
+
+Handler du webhook
+
+```php
+namespace App\Http\Controllers;
+
+use PaymentGateway\Facades\Payment;
+
+class WebhookController extends Controller
+{
+    public function handlePayPal(Request $request)
+    {
+        $payload = $request->all();
+        
+        // Traiter le webhook
+        $result = Payment::gateway('paypal')->handleWebhook(
+            $payload,
+            $request->headers->all()
+        );
+        
+        if ($result['success']) {
+            // Paiement complété/échoué
+            $order = Order::where('transaction_id', $result['transaction_id'])
+                ->update(['status' => $result['status']]);
+            
+            return response()->json(['status' => 'ok']);
+        }
+        
+        return response()->json(['status' => 'error'], 400);
+    }
+}
+```
+
+#### Écouter les événements
+
+```php
+use PaymentGateway\Events\PaymentSuccessEvent;
+use PaymentGateway\Events\PaymentFailedEvent;
+
+// Dans un service provider ou contrôleur
+Payment::on(PaymentSuccessEvent::class, function($event) {
+    // Envoyer email de confirmation
+    Mail::send('emails.payment-confirmed', $event->toArray());
+    
+    // Logger l'événement
+    Log::info('Payment successful', $event->toArray());
+});
+
+Payment::on(PaymentFailedEvent::class, function($event) {
+    // Notifier l'utilisateur
+    Notification::send($event->user, new PaymentFailedNotification());
+});
+```
+
+---
+
+### 6️⃣ Gestion des Erreurs
+
+```php
+use PaymentGateway\Exceptions\PaymentException;
+use PaymentGateway\Exceptions\ValidationException;
+
+try {
+    $result = Payment::charge([
+        'amount' => 99.99,
+        'currency' => 'INVALID', // ❌ Devise invalide
+    ]);
+} catch (ValidationException $e) {
+    echo "❌ Validation échouée: " . $e->getField();
+} catch (PaymentException $e) {
+    echo "❌ Erreur de paiement: " . $e->getMessage();
+}
+```
+
+---
+
+### 7️⃣ Remboursements
+
+```php
+// Remboursement complet
+$refund = Payment::gateway('stripe')->refund($transactionId);
+
+// Remboursement partiel
+$refund = Payment::gateway('stripe')->refund(
+    $transactionId,
+    50.00, // Montant à rembourser
+    ['reason' => 'Demande client']
+);
+
+if ($refund['success']) {
+    echo "✅ Remboursement traité: " . $refund['refund_id'];
 }
 ```
 
@@ -77,79 +391,331 @@ if ($result['success']) {
 
 | Guide | Description |
 |-------|-------------|
-| [Installation Complète](docs/INSTALLATION.md) | Guide d'installation étape par étape |
-| [Guide d'Utilisation](docs/USAGE.md) | Comment utiliser le package |
-| [Référence API](docs/API.md) | Documentation complète de l'API |
-| [Gestion des Webhooks](docs/WEBHOOKS.md) | Configuration et gestion des webhooks |
-| [Guide de Sécurité](docs/SECURITY.md) | Meilleures pratiques de sécurité |
-| [Plan de Développement](PLAN_DE_DEVELOPPEMENT.md) | Feuille de route complète du projet |
+| [🔗 Guide d'Intégration](docs/INTEGRATION_GUIDE.md) | Comment intégrer dans Laravel, Symfony, PHP Vanilla, WordPress |
+| [🚀 Installation Complète](docs/INSTALLATION.md) | Guide d'installation étape par étape |
+| [💡 Guide d'Utilisation](docs/USAGE.md) | Comment utiliser le package |
+| [🔌 Référence API](docs/API.md) | Documentation complète de l'API |
+| [🔔 Gestion des Webhooks](docs/WEBHOOKS.md) | Configuration et gestion des webhooks |
+| [🔒 Guide de Sécurité](docs/SECURITY.md) | Meilleures pratiques de sécurité |
+| [📋 Plan de Développement](PLAN_DE_DEVELOPPEMENT.md) | Feuille de route complète du projet |
 
 ---
 
-## 💻 Exemples d'Utilisation
+## 💻 Exemples d'Utilisation Avancés
 
-### Paiement Simple
+### 📌 Cas 1 : E-Commerce (Paiement Direct)
 
 ```php
-$payment = Payment::gateway('stripe')->charge([
-    'amount' => 100,
-    'currency' => 'USD',
-    'source' => 'tok_visa'
+// 1. Créer une commande
+$order = Order::create([
+    'user_id' => auth()->id(),
+    'items' => $cartItems,
+    'total' => 199.99,
+    'currency' => 'EUR',
+    'status' => 'pending'
 ]);
-```
 
-### Remboursement
+// 2. Traiter le paiement Stripe
+$payment = Payment::gateway('stripe')->charge([
+    'amount' => 199.99,
+    'currency' => 'EUR',
+    'source' => $request->get('stripe_token'),
+    'description' => "Commande #{$order->id}",
+    'metadata' => ['order_id' => $order->id]
+]);
 
-```php
-$refund = Payment::gateway('stripe')->refund(
-    $transactionId,
-    50 // Remboursement partiel (optionnel)
-);
-```
-
-### Vérification du Statut
-
-```php
-$status = Payment::gateway('paypal')->verify($transactionId);
-```
-
-### Événements
-
-```php
-Payment::on(PaymentSuccessEvent::class, function($event) {
+// 3. Mettre à jour le statut
+if ($payment['success']) {
+    $order->update([
+        'status' => 'paid',
+        'transaction_id' => $payment['transaction_id'],
+        'paid_at' => now()
+    ]);
+    
     // Envoyer email de confirmation
-    Mail::send('emails.payment-receipt', $event->toArray());
-});
-
-Payment::on(PaymentFailedEvent::class, function($event) {
-    // Notifier l'utilisateur
-    Log::error('Payment failed', $event->toArray());
-});
+    Mail::send('emails.order-confirmed', ['order' => $order]);
+    
+    return redirect()->route('orders.show', $order)->with('success', '✅ Paiement réussi!');
+} else {
+    return back()->with('error', '❌ ' . $payment['error']);
+}
 ```
 
-### Avec Laravel ORM
+### 📌 Cas 2 : Panier Différé (PayPal)
 
 ```php
-namespace App\Models;
-use PaymentGateway\Traits\HasPayments;
+// 1. Créer une commande non-payée
+$order = Order::create([
+    'user_id' => auth()->id(),
+    'status' => 'pending_payment',
+    'total' => 299.99
+]);
 
-class Order extends Model
+// 2. Créer l'ordre PayPal
+$paypalOrder = Payment::gateway('paypal')->charge([
+    'amount' => 299.99,
+    'currency' => 'EUR',
+    'customer' => [
+        'email' => auth()->user()->email,
+        'name' => auth()->user()->name
+    ],
+    'description' => "Commande #{$order->id}"
+]);
+
+if ($paypalOrder['success']) {
+    // Sauvegarder l'order_id PayPal
+    $order->update(['paypal_order_id' => $paypalOrder['order_id']]);
+    
+    // Rediriger vers PayPal
+    return redirect($paypalOrder['approval_link']);
+}
+
+// 3. Après approbation (callback)
+$captured = Payment::gateway('paypal')->captureOrderPayment(
+    $request->get('orderId')
+);
+
+if ($captured['success']) {
+    $order->update([
+        'status' => 'paid',
+        'paypal_capture_id' => $captured['capture_id'],
+        'paid_at' => now()
+    ]);
+    
+    return redirect()->route('orders.success', $order);
+}
+```
+
+### 📌 Cas 3 : Abonnement avec Renouvellement
+
+```php
+// 1. Créer un abonnement
+$subscription = Subscription::create([
+    'user_id' => auth()->id(),
+    'plan' => 'premium',
+    'price' => 9.99,
+    'currency' => 'USD',
+    'billings_cycle' => 'monthly',
+    'status' => 'pending'
+]);
+
+// 2. Premier paiement
+$payment = Payment::gateway('stripe')->charge([
+    'amount' => 9.99,
+    'currency' => 'USD',
+    'source' => $request->get('token'),
+    'description' => "Abonnement Premium - Mois 1",
+    'metadata' => [
+        'subscription_id' => $subscription->id,
+        'billing_cycle' => 1
+    ]
+]);
+
+if ($payment['success']) {
+    $subscription->update([
+        'status' => 'active',
+        'stripe_subscription_id' => $payment['subscription_id'],
+        'current_period_start' => now(),
+        'current_period_end' => now()->addMonth()
+    ]);
+}
+
+// 3. Renouvellement automatique via Webhook
+// Le webhook PayPal/Stripe mettra automatiquement à jour
+```
+
+### 📌 Cas 4 : Gestion des Webhooks
+
+```php
+// routes/api.php
+Route::post('/webhooks/payment', [PaymentWebhookController::class, 'handle']);
+
+// App/Http/Controllers/PaymentWebhookController.php
+class PaymentWebhookController extends Controller
 {
-    use HasPayments;
-
-    public function processPayment()
+    public function handle(Request $request)
     {
-        return $this->payment([
-            'amount' => $this->total,
-            'currency' => 'USD',
-            'source' => $this->payment_token
+        $gateway = $request->get('gateway'); // paypal, stripe, etc.
+        
+        // Traiter le webhook
+        $result = Payment::gateway($gateway)->handleWebhook(
+            $request->all(),
+            $request->headers->all()
+        );
+        
+        if (!$result['success']) {
+            return response()->json(['error' => 'Invalid webhook'], 400);
+        }
+        
+        // Mettre à jour le paiement
+        $order = Order::where('transaction_id', $result['transaction_id'])->first();
+        
+        if (!$order) {
+            return response()->json(['error' => 'Order not found'], 404);
+        }
+        
+        // Synchroniser le statut
+        $order->update(['status' => $result['status']]);
+        
+        // Déclencher les actions
+        match($result['status']) {
+            'completed' => $this->handlePaymentCompleted($order),
+            'failed' => $this->handlePaymentFailed($order),
+            'refunded' => $this->handlePaymentRefunded($order),
+            default => null
+        };
+        
+        return response()->json(['status' => 'ok']);
+    }
+    
+    private function handlePaymentCompleted(Order $order)
+    {
+        // Activer la commande
+        $order->activate();
+        
+        // Envoyer email
+        Mail::send('emails.payment-confirmed', ['order' => $order]);
+        
+        // Déclencher événement personnalisé
+        event(new OrderPaid($order));
+    }
+}
+```
+
+### 📌 Cas 5 : Remboursement Client
+
+```php
+// 1. Initier un remboursement
+public function refundOrder(Order $order, Request $request)
+{
+    // Valider que le paiement peut être remboursé
+    if ($order->status !== 'paid') {
+        return back()->with('error', 'Seuls les paiements complétés peuvent être remboursés');
+    }
+    
+    // Montant du remboursement (optionnel)
+    $amount = $request->get('amount', $order->total);
+    
+    // Traiter le remboursement
+    $refund = Payment::gateway($order->gateway)->refund(
+        $order->transaction_id,
+        $amount,
+        ['reason' => $request->get('reason')]
+    );
+    
+    if ($refund['success']) {
+        $order->update([
+            'status' => 'refunded',
+            'refund_id' => $refund['refund_id'],
+            'refunded_at' => now(),
+            'refund_amount' => $amount
         ]);
+        
+        // Notifier le client
+        Mail::send('emails.refund-processed', ['order' => $order]);
+        
+        return back()->with('success', '✅ Remboursement traité');
+    } else {
+        return back()->with('error', '❌ ' . $refund['error']);
     }
 }
 
-// Usage
-$order = Order::find(1);
-$result = $order->processPayment();
+// 2. Vérifier le statut du remboursement
+$status = Payment::gateway($order->gateway)->verify($order->transaction_id);
+
+if ($status['status'] === 'refunded') {
+    echo "✅ Remboursement complété";
+    echo "Montant: " . $status['refund_amount'];
+}
+```
+
+### 📌 Cas 6 : Support Multi-Devise
+
+```php
+// Accepter les paiements en plusieurs devises
+$order = Order::create([
+    'amount' => 100,
+    'currency' => $request->get('currency') // EUR, USD, GBP, etc.
+]);
+
+// PayPal supporte 20+ devises
+$payment = Payment::gateway('paypal')->charge([
+    'amount' => 100,
+    'currency' => 'EUR', // ✅ Non USD!
+    'customer' => ['email' => 'user@example.com']
+]);
+
+// Taux de change automatique appliqué
+```
+
+### 📌 Cas 7 : Logs et Audit
+
+```php
+// Tous les paiements sont automatiquement loggés
+use PaymentGateway\Models\WebhookLog;
+use PaymentGateway\Models\Transaction;
+
+// Voir tous les paiements
+$transactions = Transaction::where('gateway', 'paypal')
+    ->where('status', 'completed')
+    ->get();
+
+// Voir tous les webhooks reçus
+$webhooks = WebhookLog::where('gateway', 'paypal')
+    ->where('status', 'received')
+    ->latest()
+    ->paginate(20);
+
+// Voir les erreurs
+$failed = Transaction::where('status', 'failed')
+    ->whereDate('created_at', today())
+    ->get();
+
+// Logger personnalisé
+Log::info('Payment processed', [
+    'order_id' => $order->id,
+    'transaction_id' => $payment['transaction_id'],
+    'amount' => $payment['amount'],
+    'gateway' => 'paypal'
+]);
+```
+
+### 📌 Cas 8 : Événements Personnalisés
+
+```php
+use PaymentGateway\Events\PaymentSuccessEvent;
+use PaymentGateway\Events\PaymentFailedEvent;
+use PaymentGateway\Events\WebhookReceivedEvent;
+
+// Dans un service provider
+Payment::on(PaymentSuccessEvent::class, function($event) {
+    // Envoyer email
+    Mail::send('emails.payment-success', ['event' => $event]);
+    
+    // Mettre à jour les stats
+    Stats::increment('payments_completed', $event->amount);
+    
+    // Déclencher action
+    $event->order->activate();
+});
+
+Payment::on(PaymentFailedEvent::class, function($event) {
+    // Notifier l'admin
+    Notification::send(Admin::all(), new PaymentFailedNotification($event));
+    
+    // Logger l'erreur
+    Log::error('Payment failed', $event->toArray());
+});
+
+Payment::on(WebhookReceivedEvent::class, function($event) {
+    // Audit trail
+    AuditLog::create([
+        'event' => 'webhook_received',
+        'gateway' => $event->gateway,
+        'type' => $event->event_type,
+        'ip' => request()->ip()
+    ]);
+});
 ```
 
 ---
