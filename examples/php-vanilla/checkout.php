@@ -94,6 +94,14 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
                     <h1>💳 Payment Gateway Integration Example</h1>
                     <p class="text-muted">PHP Vanilla Example - Direct integration with the payment package</p>
                     
+                    <!-- Debug Link -->
+                    <div class="alert alert-info" role="alert" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>🔍 Having trouble?</strong> Check your configuration with the debug tool
+                        </div>
+                        <a href="debug.php" class="btn btn-sm btn-info">Open Debug Tool</a>
+                    </div>
+                    
                     <!-- Payment Result Messages -->
                     <?php if ($paymentError): ?>
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -101,25 +109,30 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
                             <p><?php echo $paymentError; ?></p>
                             
                             <!-- Troubleshooting Section -->
-                            <?php if (strpos($paymentError, 'credentials') !== false || strpos($paymentError, 'authentication') !== false): ?>
+                            <?php if (strpos($paymentError, 'credentials') !== false || strpos($paymentError, 'authentication') !== false || strpos($paymentError, '404') !== false): ?>
                                 <hr>
-                                <strong>💡 How to Fix:</strong>
+                                <strong>💡 How to Troubleshoot:</strong>
                                 <ol style="margin: 0.5rem 0; padding-left: 1.5rem;">
-                                    <li>Go to <a href="https://developer.paypal.com" target="_blank" style="color: inherit; text-decoration: underline;">PayPal Developer Dashboard</a></li>
-                                    <li>Click "Apps & Credentials" at the top</li>
-                                    <li>Select "Sandbox" mode (top right)</li>
-                                    <li>Find your app under "REST API apps"</li>
-                                    <li>Copy the <code>Client ID</code> and <code>Secret</code></li>
-                                    <li>Update your <code>.env</code> file in the project root:
-                                        <pre style="background: #f5f5f5; padding: 0.5rem; margin: 0.5rem 0; font-size: 0.9rem;"><code>PAYPAL_CLIENT_ID=your_client_id_here
-PAYPAL_CLIENT_SECRET=your_secret_here
-PAYPAL_MODE=sandbox</code></pre>
+                                    <li><a href="debug.php" class="btn btn-sm btn-outline-danger">Run Configuration Debug</a> to verify your credentials are being loaded</li>
+                                    <li>Make sure your <code>.env</code> file is in the <strong>project root</strong> (not in examples/php-vanilla/)</li>
+                                    <li>Verify your PayPal credentials:
+                                        <ul style="margin: 0.5rem 0; padding-left: 1rem;">
+                                            <li>Go to <a href="https://developer.paypal.com/dashboard/" target="_blank">PayPal Developer Dashboard</a></li>
+                                            <li>Click "Apps & Credentials" (top menu)</li>
+                                            <li>Make sure "Sandbox" is selected (top right)</li>
+                                            <li>Find your app and verify the Client ID matches your .env file</li>
+                                            <li>If different, copy the correct credentials and update your .env</li>
+                                        </ul>
                                     </li>
-                                    <li>Reload this page</li>
+                                    <li>If credentials look correct, they might be <strong>expired or revoked</strong>:
+                                        <ul style="margin: 0.5rem 0; padding-left: 1rem;">
+                                            <li>Generate new credentials in PayPal Dashboard</li>
+                                            <li>Update your .env file with the new values</li>
+                                            <li>Try again</li>
+                                        </ul>
+                                    </li>
+                                    <li>Reload this page and try the payment form again</li>
                                 </ol>
-                            <?php elseif (strpos($paymentError, '404') !== false): ?>
-                                <hr>
-                                <strong>💡 This is usually caused by invalid credentials. See steps above to fix.</strong>
                             <?php endif; ?>
                             
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
