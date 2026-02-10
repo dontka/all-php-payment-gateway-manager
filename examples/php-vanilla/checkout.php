@@ -10,7 +10,7 @@
 
 // Load configuration and dependencies
 require_once __DIR__ . '/../../vendor/autoload.php';
-require_once __DIR__ . '/config.php';
+$config = require_once __DIR__ . '/config.php';
 
 use PaymentGateway\Core\PaymentManager;
 use PaymentGateway\Gateways\PayPalGateway;
@@ -22,19 +22,19 @@ $paymentManager = new PaymentManager();
 // Configure gateways
 try {
     // Setup PayPal
-    $paypalGateway = new PayPalGateway(
-        apiKey: $config['paypal']['client_id'],
-        secret: $config['paypal']['client_secret'],
-        mode: $config['paypal']['mode']
-    );
+    $paypalGateway = new PayPalGateway([
+        'client_id' => $config['paypal']['client_id'],
+        'client_secret' => $config['paypal']['client_secret'],
+        'mode' => $config['paypal']['mode']
+    ]);
     $paymentManager->registerGateway('paypal', $paypalGateway);
 
     // Setup Stripe (if configured)
     if (!empty($config['stripe']['api_key'])) {
-        $stripeGateway = new StripeGateway(
-            apiKey: $config['stripe']['api_key'],
-            secretKey: $config['stripe']['secret_key']
-        );
+        $stripeGateway = new StripeGateway([
+            'api_key' => $config['stripe']['api_key'],
+            'secret_key' => $config['stripe']['secret_key']
+        ]);
         $paymentManager->registerGateway('stripe', $stripeGateway);
     }
 

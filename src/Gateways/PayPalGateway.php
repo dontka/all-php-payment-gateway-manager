@@ -36,7 +36,7 @@ class PayPalGateway extends AbstractGateway
     /**
      * HTTP client instance
      */
-    private HttpClientInterface $client;
+    protected mixed $client = null;
 
     /**
      * API base URL
