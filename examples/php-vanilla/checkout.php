@@ -39,6 +39,12 @@ try {
     }
 } catch (\Exception $e) {
     $paymentError = "Gateway initialization failed: " . $e->getMessage();
+    
+    // Check if using placeholder credentials
+    if (strpos($config['paypal']['client_id'], 'YOUR_') !== false) {
+        $paymentError .= "<br><strong>⚠️ Setup Required:</strong> Please configure your PayPal sandbox credentials in the <code>.env</code> file. "
+            . "Get credentials from <a href='https://developer.paypal.com' target='_blank'>PayPal Developer Dashboard</a>";
+    }
 }
 
 // Handle form submission
@@ -87,7 +93,7 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
                     <?php if ($paymentError): ?>
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
                             <h5 class="alert-heading">❌ Error</h5>
-                            <p><?php echo htmlspecialchars($paymentError); ?></p>
+                            <p><?php echo $paymentError; ?></p>
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     <?php endif; ?>
