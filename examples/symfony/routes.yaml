@@ -1,0 +1,19 @@
+payment_charge:
+  path: /payment/charge
+  controller: App\Controller\PaymentController::charge
+  methods: POST
+
+payment_success:
+  path: /payment/success
+  controller: App\Controller\PaymentController::success
+  methods: GET
+
+payment_refund:
+  path: /payment/refund
+  controller: App\Controller\PaymentController::refund
+  methods: POST
+
+webhook_payment:
+  path: /webhook/payment
+  controller: App\Controller\WebhookController::handlePayment
+  methods: POST
