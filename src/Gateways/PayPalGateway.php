@@ -426,10 +426,20 @@ class PayPalGateway extends AbstractGateway
         }
 
         try {
+            $clientId = $this->getConfig('client_id');
+            $clientSecret = $this->getConfig('client_secret');
+            
+            // Check for placeholder credentials
+            if (strpos($clientId, 'YOUR_') === 0 || strpos($clientSecret, 'YOUR_') === 0) {
+                throw new GatewayException(
+                    'PayPal credentials are not configured. '
+                    . 'Please set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET in your .env file. '
+                    . 'Get credentials from https://developer.paypal.com'
+                );
+            }
+            
             $url = "{$this->apiUrl}/v1/oauth2/token";
-            $credentials = base64_encode(
-                $this->getConfig('client_id') . ':' . $this->getConfig('client_secret')
-            );
+            $credentials = base64_encode($clientId . ':' . $clientSecret);
 
             $response = $this->client->request('POST', $url, [
                 'headers' => [
@@ -440,16 +450,38 @@ class PayPalGateway extends AbstractGateway
                 'body' => 'grant_type=client_credentials',
             ]);
 
+            $statusCode = $response->getStatusCode();
+            
+            // Check for HTTP errors
+            if ($statusCode < 200 || $statusCode >= 300) {
+                $errorContent = json_decode($response->getContent(false), true);
+                $errorMessage = $errorContent['error_description'] ?? $errorContent['message'] ?? "HTTP {$statusCode}";
+                
+                if ($statusCode === 401 || $statusCode === 403) {
+                    throw new GatewayException(
+                        'PayPal authentication failed: Invalid credentials. '
+                        . 'Verify your Client ID and Secret in .env file. '
+                        . 'Get them from https://developer.paypal.com'
+                    );
+                }
+                
+                throw new GatewayException("PayPal OAuth error: {$errorMessage}");
+            }
+
             $data = json_decode($response->getContent(), true);
             $this->accessToken = $data['access_token'] ?? null;
 
             if ($this->accessToken === null) {
-                throw new GatewayException('Failed to obtain PayPal access token');
+                throw new GatewayException('Failed to obtain PayPal access token - response missing access_token field');
             }
 
             return $this->accessToken;
         } catch (\Exception $e) {
-            throw new GatewayException("Failed to get PayPal access token: {$e->getMessage()}", 0, $e);
+            $this->logError('Failed to get access token', [
+                'error' => $e->getMessage(),
+                'client_id' => substr($this->getConfig('client_id'), 0, 10) . '...' // Log first 10 chars only
+            ]);
+            throw $e;
         }
     }
 

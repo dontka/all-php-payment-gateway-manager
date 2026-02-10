@@ -99,6 +99,29 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
                             <h5 class="alert-heading">❌ Error</h5>
                             <p><?php echo $paymentError; ?></p>
+                            
+                            <!-- Troubleshooting Section -->
+                            <?php if (strpos($paymentError, 'credentials') !== false || strpos($paymentError, 'authentication') !== false): ?>
+                                <hr>
+                                <strong>💡 How to Fix:</strong>
+                                <ol style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                                    <li>Go to <a href="https://developer.paypal.com" target="_blank" style="color: inherit; text-decoration: underline;">PayPal Developer Dashboard</a></li>
+                                    <li>Click "Apps & Credentials" at the top</li>
+                                    <li>Select "Sandbox" mode (top right)</li>
+                                    <li>Find your app under "REST API apps"</li>
+                                    <li>Copy the <code>Client ID</code> and <code>Secret</code></li>
+                                    <li>Update your <code>.env</code> file in the project root:
+                                        <pre style="background: #f5f5f5; padding: 0.5rem; margin: 0.5rem 0; font-size: 0.9rem;"><code>PAYPAL_CLIENT_ID=your_client_id_here
+PAYPAL_CLIENT_SECRET=your_secret_here
+PAYPAL_MODE=sandbox</code></pre>
+                                    </li>
+                                    <li>Reload this page</li>
+                                </ol>
+                            <?php elseif (strpos($paymentError, '404') !== false): ?>
+                                <hr>
+                                <strong>💡 This is usually caused by invalid credentials. See steps above to fix.</strong>
+                            <?php endif; ?>
+                            
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     <?php endif; ?>
