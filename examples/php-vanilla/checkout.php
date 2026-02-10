@@ -4,218 +4,166 @@
  * PHP Vanilla Checkout Example
  *
  * Usage:
- *   php examples/php-vanilla/checkout.php
- *   Or access via web: http://localhost/examples/php-vanilla/checkout.php
+ *   Access via web: http://localhost/examples/php-vanilla/checkout.php
+ *   Then fill the form and submit to test payment integration
  */
 
 // Load configuration and dependencies
 require_once __DIR__ . '/../../vendor/autoload.php';
 $config = require_once __DIR__ . '/config.php';
 
-use PaymentGateway\Core\PaymentManager;
-use PaymentGateway\Gateways\PayPalGateway;
-use PaymentGateway\Gateways\StripeGateway;
-
-// Initialize Payment Manager
-$paymentManager = new PaymentManager();
-$initError = null;
-
-// Configure gateways
-try {
-    // Setup PayPal
-    $paypalGateway = new PayPalGateway([
-        'client_id' => $config['paypal']['client_id'],
-        'client_secret' => $config['paypal']['client_secret'],
-        'mode' => $config['paypal']['mode']
-    ]);
-    $paymentManager->registerGateway('paypal', $paypalGateway);
-
-    // Setup Stripe (if configured)
-    if (!empty($config['stripe']['api_key'])) {
-        $stripeGateway = new StripeGateway([
-            'api_key' => $config['stripe']['api_key'],
-            'secret_key' => $config['stripe']['secret_key']
-        ]);
-        $paymentManager->registerGateway('stripe', $stripeGateway);
-    }
-
-} catch (\Exception $e) {
-    $initError = $e->getMessage();
-    error_log("Payment gateway initialization error: " . $initError);
-}
-
-// Handle form submission or API request
-if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    header('Content-Type: application/json');
-    
-    if ($initError) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Gateway initialization failed: ' . $initError]);
-        exit;
-    }
-    
-    $input = $_POST;
-
-    // Validate input
-    if (empty($input['amount']) || !is_numeric($input['amount'])) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Invalid amount']);
-        exit;
-    }
-
-    if (empty($input['currency'])) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Missing currency']);
-        exit;
-    }
-
-    if (empty($input['email'])) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Missing email']);
-        exit;
-    }
-
-    $gateway = $input['gateway'] ?? 'paypal';
-
-    try {
-        // Process payment
-        $result = $paymentManager->gateway($gateway)->charge([
-            'amount' => (float) $input['amount'],
-            'currency' => $input['currency'],
-            'customer' => [
-                'email' => $input['email'],
-                'name' => $input['name'] ?? 'Customer'
-            ],
-            'description' => $input['description'] ?? 'Payment'
-        ]);
-
-        if ($result['success']) {
-            http_response_code(200);
-            echo json_encode([
-                'success' => true,
-                'transaction_id' => $result['transaction_id'] ?? $result['order_id'] ?? null,
-                'approval_link' => $result['approval_link'] ?? null,
-                'message' => 'Payment created successfully'
-            ]);
-        } else {
-            http_response_code(400);
-            echo json_encode([
-                'success' => false,
-                'error' => $result['error'] ?? 'Payment failed'
-            ]);
-        }
-        exit;
-
-    } catch (\Exception $e) {
-        http_response_code(500);
-        echo json_encode([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
-        exit;
-    }
-}
-
-// Only show initialization error on GET if present
-$initMessage = $initError ? "<div class=\"alert alert-warning\">⚠️ Gateway initialization error: $initError</div>" : '';
 ?>
 <!DOCTYPE html>
 <html>
 <head>
     <title>Payment Gateway Example</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .form-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .section-title { font-size: 1.1rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 1rem; color: #333; }
+        .example-box { background: #f0f7ff; padding: 1rem; border-left: 4px solid #0066cc; margin: 1rem 0; }
+        code { color: #d63384; background: #f8f9fa; padding: 2px 6px; border-radius: 3px; }
+    </style>
 </head>
 <body>
-    <div class="container" style="margin-top: 2rem;">
+    <div class="container" style="margin-top: 2rem; margin-bottom: 2rem;">
         <div class="row">
-            <div class="col-md-6 offset-md-3">
-                <h1>💳 Payment Gateway</h1>
-                <?php echo $initMessage; ?>
+            <div class="col-md-8 offset-md-2">
+                <div class="form-container">
+                    <h1>💳 Payment Gateway Integration Example</h1>
+                    <p class="text-muted">PHP Vanilla Example - Learn how to integrate payment gateways</p>
+                    
+                    <!-- Payment Form -->
+                    <div class="section-title">Step 1: Fill in Payment Details</div>
+                    <form method="POST" action="/process-payment.php" id="paymentForm">
+                        <div class="mb-3">
+                            <label class="form-label">Amount <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="amount" placeholder="99.99" step="0.01" required>
+                            <small class="text-muted">Enter the amount to charge</small>
+                        </div>
 
-                <form method="POST" id="paymentForm">
-                    <div class="mb-3">
-                        <label class="form-label">Amount</label>
-                        <input type="number" class="form-control" name="amount" placeholder="99.99" step="0.01" required>
+                        <div class="mb-3">
+                            <label class="form-label">Currency <span class="text-danger">*</span></label>
+                            <select class="form-control" name="currency" required>
+                                <option value="">Select currency...</option>
+                                <option value="USD">USD - US Dollar</option>
+                                <option value="EUR">EUR - Euro</option>
+                                <option value="GBP">GBP - British Pound</option>
+                                <option value="JPY">JPY - Japanese Yen</option>
+                                <option value="CAD">CAD - Canadian Dollar</option>
+                                <option value="AUD">AUD - Australian Dollar</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" name="email" placeholder="customer@example.com" required>
+                            <small class="text-muted">Customer email for payment receipt</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" class="form-control" name="name" placeholder="John Doe">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Payment Gateway <span class="text-danger">*</span></label>
+                            <select class="form-control" name="gateway" required>
+                                <option value="">Select gateway...</option>
+                                <option value="paypal">PayPal</option>
+                                <option value="stripe">Stripe</option>
+                                <option value="square">Square</option>
+                            </select>
+                            <small class="text-muted">Choose which payment provider to use</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Description (optional)</label>
+                            <input type="text" class="form-control" name="description" placeholder="Order #12345">
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100">Proceed to Payment</button>
+                    </form>
+
+                    <!-- Implementation Guide -->
+                    <div class="section-title">Step 2: Backend Implementation</div>
+                    <div class="example-box">
+                        <strong>PHP Backend Code:</strong>
+                        <pre><code>// process-payment.php
+use PaymentGateway\Core\PaymentManager;
+use PaymentGateway\Gateways\PayPalGateway;
+
+$manager = new PaymentManager();
+
+$gateway = new PayPalGateway([
+    'client_id' => $_ENV['PAYPAL_CLIENT_ID'],
+    'client_secret' => $_ENV['PAYPAL_CLIENT_SECRET'],
+    'mode' => 'sandbox'
+]);
+
+$manager->registerGateway('paypal', $gateway);
+
+$result = $manager->gateway($_POST['gateway'])
+    ->charge([
+        'amount' => $_POST['amount'],
+        'currency' => $_POST['currency'],
+        'customer' => [
+            'email' => $_POST['email'],
+            'name' => $_POST['name']
+        ]
+    ]);</code></pre>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Currency</label>
-                        <select class="form-control" name="currency" required>
-                            <option value="USD">USD</option>
-                            <option value="EUR">EUR</option>
-                            <option value="GBP">GBP</option>
-                            <option value="JPY">JPY</option>
-                        </select>
+                    <!-- Configuration Guide -->
+                    <div class="section-title">Step 3: Configuration</div>
+                    <div class="alert alert-info">
+                        <strong>📝 Environment Setup:</strong>
+                        <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                            <li>Set <code>PAYPAL_CLIENT_ID</code> environment variable</li>
+                            <li>Set <code>PAYPAL_CLIENT_SECRET</code> environment variable</li>
+                            <li>Set <code>STRIPE_API_KEY</code> for Stripe support</li>
+                            <li>Set <code>PAYPAL_MODE</code> to <code>sandbox</code> or <code>live</code></li>
+                        </ul>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" name="email" placeholder="customer@example.com" required>
+                    <!-- Usage Tips -->
+                    <div class="section-title">Step 4: Next Steps</div>
+                    <div class="alert alert-success">
+                        <strong>✅ What this form demonstrates:</strong>
+                        <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                            <li>Flexible payment amount and currency selection</li>
+                            <li>Multi-gateway support (PayPal, Stripe, Square)</li>
+                            <li>Customer data capture (email, name)</li>
+                            <li>Simple HTML form for payment initiation</li>
+                        </ul>
+                        <strong style="display: block; margin-top: 1rem;">📚 Learn more:</strong>
+                        <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                            <li>See <code>docs/INTEGRATION_GUIDE.md</code> for detailed setup</li>
+                            <li>Check <code>examples/laravel/</code> for Laravel integration</li>
+                            <li>Check <code>examples/symfony/</code> for Symfony integration</li>
+                        </ul>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Name (optional)</label>
-                        <input type="text" class="form-control" name="name" placeholder="John Doe">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Gateway</label>
-                        <select class="form-control" name="gateway">
-                            <option value="paypal">PayPal</option>
-                            <option value="stripe">Stripe</option>
-                        </select>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary w-100" <?php echo $initError ? 'disabled' : ''; ?>>Pay Now</button>
-                </form>
-
-                <div id="result" style="margin-top: 2rem;"></div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        document.getElementById('paymentForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const formData = new FormData(e.target);
-            try {
-                const response = await fetch(window.location.href, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-                const resultDiv = document.getElementById('result');
-
-                if (data.success) {
-                    resultDiv.innerHTML = `
-                        <div class="alert alert-success">
-                            <h5>✅ Payment Created!</h5>
-                            <p>Transaction ID: <code>${data.transaction_id}</code></p>
-                            ${data.approval_link ? `
-                                <a href="${data.approval_link}" class="btn btn-primary">
-                                    Complete Payment →
-                                </a>
-                            ` : '<p>Payment completed immediately</p>'}
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `
-                        <div class="alert alert-danger">
-                            <h5>❌ Payment Failed</h5>
-                            <p>${data.error}</p>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                document.getElementById('result').innerHTML = `
-                    <div class="alert alert-danger">
-                        <h5>❌ Request Error</h5>
-                        <p>${error.message}</p>
-                    </div>
-                `;
+        // Simple form validation feedback
+        document.getElementById('paymentForm').addEventListener('submit', function(e) {
+            const amount = this.querySelector('[name="amount"]').value;
+            const currency = this.querySelector('[name="currency"]').value;
+            const email = this.querySelector('[name="email"]').value;
+            const gateway = this.querySelector('[name="gateway"]').value;
+            
+            if (!amount || !currency || !email || !gateway) {
+                e.preventDefault();
+                alert('Please fill in all required fields');
+                return false;
             }
+            
+            alert(`Processing ${amount} ${currency} payment via ${gateway} for ${email}`);
         });
     </script>
 </body>
