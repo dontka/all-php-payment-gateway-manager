@@ -14,7 +14,6 @@ $config = require_once __DIR__ . '/config.php';
 
 use PaymentGateway\Core\PaymentManager;
 use PaymentGateway\Gateways\PayPalGateway;
-use PaymentGateway\Gateways\StripeGateway;
 
 // Initialize Payment Manager
 $paymentManager = new PaymentManager();
@@ -30,8 +29,9 @@ try {
     ]);
     $paymentManager->registerGateway('paypal', $paypalGateway);
 
-    if (!empty($config['stripe']['api_key'])) {
-        $stripeGateway = new StripeGateway([
+    // Register Stripe gateway if available (coming in Week 2.1)
+    if (class_exists('PaymentGateway\Gateways\StripeGateway') && !empty($config['stripe']['api_key'])) {
+        $stripeGateway = new \PaymentGateway\Gateways\StripeGateway([
             'api_key' => $config['stripe']['api_key'],
             'secret_key' => $config['stripe']['secret_key']
         ]);
@@ -51,6 +51,11 @@ try {
 if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && !$paymentError) {
     try {
         $gateway = $_POST['gateway'] ?? 'paypal';
+        
+        // Validate gateway is available
+        if ($gateway === 'stripe' && !class_exists('PaymentGateway\Gateways\StripeGateway')) {
+            throw new Exception('Stripe gateway is not yet available. Please use PayPal.');
+        }
         
         $paymentResult = $paymentManager->gateway($gateway)->charge([
             'amount' => (float) $_POST['amount'],
@@ -163,7 +168,9 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' &
                             <select class="form-control" name="gateway" required>
                                 <option value="">Select gateway...</option>
                                 <option value="paypal">PayPal</option>
-                                <option value="stripe">Stripe</option>
+                                <?php if (class_exists('PaymentGateway\Gateways\StripeGateway')): ?>
+                                    <option value="stripe">Stripe</option>
+                                <?php endif; ?>
                             </select>
                         </div>
 
