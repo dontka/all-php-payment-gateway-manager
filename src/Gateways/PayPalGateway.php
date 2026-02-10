@@ -291,7 +291,7 @@ class PayPalGateway extends AbstractGateway
             ],
             'payer' => $this->preparePayerData($data['customer'] ?? []),
             'application_context' => [
-                'brand_name' => $data['brand_name'] ?? config('app.name', 'Payment Gateway'),
+                'brand_name' => $data['brand_name'] ?? 'Payment Gateway',
                 'locale' => 'en-US',
                 'landing_page' => 'LOGIN',
                 'user_action' => 'PAY_NOW',
