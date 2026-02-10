@@ -420,7 +420,8 @@ if ($refund['success']) {
 | Guide | Description |
 |-------|-------------|
 | [🔗 Guide d'Intégration](docs/INTEGRATION_GUIDE.md) | Comment intégrer dans Laravel, Symfony, PHP Vanilla, WordPress |
-| [🚀 Installation Complète](docs/INSTALLATION.md) | Guide d'installation étape par étape |
+| [� Exemples Prêts à l'Emploi](examples/README.md) | **NOUVEAU!** Exemples complets pour PHP Vanilla, Laravel, Symfony, WordPress |
+| [�🚀 Installation Complète](docs/INSTALLATION.md) | Guide d'installation étape par étape |
 | [💡 Guide d'Utilisation](docs/USAGE.md) | Comment utiliser le package |
 | [🔌 Référence API](docs/API.md) | Documentation complète de l'API |
 | [🔔 Gestion des Webhooks](docs/WEBHOOKS.md) | Configuration et gestion des webhooks |
