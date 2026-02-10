@@ -14,8 +14,8 @@
 
 ```bash
 # 1. Cloner le repo
-git clone https://github.com/yourusername/php-payment-gateway.git
-cd php-payment-gateway
+git clone https://github.com/dontka/all-all-php-payment-gateway-manager-manager.git
+cd all-php-payment-gateway-manager
 
 # 2. Installer les dépendances
 composer install

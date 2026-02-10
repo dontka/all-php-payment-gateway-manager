@@ -20,7 +20,7 @@ Un package PHP complète et modulaire pour intégrer facilement **tous les princ
 ### Installation
 
 ```bash
-composer require yourusername/all-php-payments-gateway
+composer require dontka/all-php-payment-gateway-manager
 ```
 
 ### Configuration (Laravel)
@@ -373,8 +373,8 @@ R: Oui! Consultez le guide de contribution.
 
 - 📧 **Email** : support@example.com
 - 💬 **Discord** : [Rejoindre le serveur](https://discord.gg/example)
-- 🐛 **Issues** : [GitHub Issues](https://github.com/yourusername/php-payment-gateway/issues)
-- 📖 **Q&A** : [GitHub Discussions](https://github.com/yourusername/php-payment-gateway/discussions)
+- 🐛 **Issues** : [GitHub Issues](https://github.com/dontka/all-php-payment-gateway-manager/issues)
+- 📖 **Q&A** : [GitHub Discussions](https://github.com/dontka/all-php-payment-gateway-manager/discussions)
 
 ---
 
@@ -397,11 +397,11 @@ Merci à tous les contributeurs et à la communauté PHP!
 
 ## 📊 Statistiques
 
-![GitHub stars](https://img.shields.io/github/stars/yourusername/php-payment-gateway?style=social)
-![GitHub forks](https://img.shields.io/github/forks/yourusername/php-payment-gateway?style=social)
-![GitHub watchers](https://img.shields.io/github/watchers/yourusername/php-payment-gateway?style=social)
-![GitHub issues](https://img.shields.io/github/issues/yourusername/php-payment-gateway)
-![GitHub license](https://img.shields.io/github/license/yourusername/php-payment-gateway)
+![GitHub stars](https://img.shields.io/github/stars/dontka/all-php-payment-gateway-manager?style=social)
+![GitHub forks](https://img.shields.io/github/forks/dontka/all-php-payment-gateway-manager?style=social)
+![GitHub watchers](https://img.shields.io/github/watchers/dontka/all-php-payment-gateway-manager?style=social)
+![GitHub issues](https://img.shields.io/github/issues/dontka/all-php-payment-gateway-manager)
+![GitHub license](https://img.shields.io/github/license/dontka/all-php-payment-gateway-manager)
 
 ---
 
@@ -409,5 +409,5 @@ Merci à tous les contributeurs et à la communauté PHP!
 
 **Dernière mise à jour** : 10 Février 2026  
 **Version** : 1.0.0-beta  
-**Mainteneur** : [@yourusername](https://github.com/yourusername)
+**Mainteneur** : [@dontka](https://github.com/dontka)
 

@@ -186,7 +186,7 @@ Créer un middleware de paiement qui :
 ## 📁 Structure du Projet {#structure}
 
 ```
-php-payment-gateway/
+all-php-payment-gateway-manager/
 │
 ├── src/
 │   ├── Core/
@@ -387,7 +387,7 @@ php-payment-gateway/
 - ✅ Créer le fichier `composer.json` :
   ```json
   {
-    "name": "yourusername/php-payment-gateway",
+    "name": "dontka/all-php-payment-gateway-manager",
     "description": "A comprehensive PHP package for managing multiple payment gateways",
     "type": "library",
     "require": {
@@ -1356,7 +1356,7 @@ class PaymentManagerTest extends TestCase
 ### Installation via Composer
 
 ```bash
-composer require yourusername/php-payment-gateway
+composer require dontka/all-php-payment-gateway-manager
 ```
 
 ### Configuration initiale
@@ -1722,7 +1722,7 @@ $validator->validate($data, [
 ## 🎯 Structure de la Documentation Complète
 
 ```
-📦 PHP-Payment-Gateway/
+📦 all-php-payment-gateway-manager/
 │
 ├── 📋 PLAN DE DÉVELOPPEMENT (Ce document)
 │   └─ Architecture technique détaillée
