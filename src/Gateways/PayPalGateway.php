@@ -491,4 +491,19 @@ class PayPalGateway extends AbstractGateway
             'paylater',
         ];
     }
+
+    /**
+     * Log an error message
+     *
+     * @param string $message Error message
+     * @param array $context Additional context
+     */
+    private function logError(string $message, array $context = []): void
+    {
+        error_log(sprintf(
+            '[PayPal Gateway Error] %s | Context: %s',
+            $message,
+            json_encode($context)
+        ));
+    }
 }
